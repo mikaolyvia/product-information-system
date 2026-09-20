@@ -3,138 +3,140 @@
 require_once 'products.php';
 require_once 'functions.php';
 
-// Menangkap parameter GET untuk fitur pencarian dan filter
-$keyword = $_GET['q'] ?? '';
-$kategori = $_GET['cat'] ?? '';
-
-// Eksekusi fungsi
-$produkTerfilter = filterProduk($products, $keyword, $kategori);
-$totalValuasi = hitungTotalNilaiStok($products);
-$ringkasan = hitungRingkasanInventaris($products);
-$topAsset = cariAsetTertinggi($products);
-$daftarKategori = ambilDaftarKategori($products);
+$totalAset = hitungTotalNilaiStok($products);
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventaris & Valuasi Operasional - ElectroStore</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Product Information System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            padding: 2.5rem 1.5rem;
+        }
+        .wadah {
+            max-width: 1050px;
+            margin: 0 auto;
+        }
+        .header {
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.8rem;
+        }
+        .header h1 {
+            font-size: 1.6rem;
+            color: #0f172a;
+        }
+        .header p {
+            color: #64748b;
+            font-size: 0.95rem;
+            margin-top: 0.3rem;
+        }
+        .kotak-nilai {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-left: 5px solid #2563eb;
+            padding: 1.2rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+        }
+        .kotak-nilai span {
+            font-size: 0.85rem;
+            color: #64748b;
+            display: block;
+        }
+        .kotak-nilai strong {
+            font-size: 1.5rem;
+            color: #2563eb;
+        }
+        .wadah-tabel {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        th, td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }
+        th {
+            background-color: #f1f5f9;
+            color: #334155;
+            font-weight: 600;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        /* Penanda baris stok kritis (< 3) berupa warna merah muda tanpa teks */
+        .baris-kritis {
+            background-color: #fee2e2 !important;
+        }
+        .baris-kritis:hover {
+            background-color: #fecaca !important;
+        }
+        .baris-normal:hover {
+            background-color: #f8fafc;
+        }
+    </style>
 </head>
 <body>
 
-<div class="container">
-    <!-- Header -->
-    <header class="header">
-        <div>
-            <h1>ElectroStore Ops Management</h1>
-            <p>Sistem Pengendalian Stok & Monitoring Aset Gudang Elektronik</p>
-        </div>
-        <div>
-            <span class="badge badge-success">Mode Operasional Aktif</span>
-        </div>
-    </header>
+<div class="wadah">
+    <div class="header">
+        <h1>Product Information System</h1>
+        <p>Sistem Manajemen Data Informasi Produk</p>
+    </div>
 
-    <!-- KPI Summary Grid -->
-    <section class="metrics-grid">
-        <div class="metric-card blue">
-            <span>Total Valuasi Aset Gudang</span>
-            <h2><?= formatRupiah($totalValuasi) ?></h2>
-        </div>
-        <div class="metric-card emerald">
-            <span>Total Kuantitas Fisik</span>
-            <h2><?= $ringkasan['total_unit'] ?> <small style="font-size: 0.8rem;">Unit</small></h2>
-        </div>
-        <div class="metric-card amber">
-            <span>Peringatan Stok Kritis (&lt;3)</span>
-            <h2><?= $ringkasan['item_kritis'] ?> <small style="font-size: 0.8rem;">SKU</small></h2>
-        </div>
-        <div class="metric-card rose">
-            <span>Stok Habis (Kehilangan Peluang)</span>
-            <h2><?= $ringkasan['item_habis'] ?> <small style="font-size: 0.8rem;">SKU</small></h2>
-        </div>
-    </section>
+    <!-- Kotak Ringkasan Total Nilai Aset Gudang -->
+    <div class="kotak-nilai">
+        <span>Total Nilai Aset Gudang:</span>
+        <strong><?= formatRupiah($totalAset) ?></strong>
+    </div>
 
-    <!-- Filter & Search Bar -->
-    <form method="GET" action="index.php" class="filter-bar">
-        <input type="text" name="q" placeholder="Cari nama barang atau kode SKU..." value="<?= htmlspecialchars($keyword) ?>">
-        
-        <select name="cat">
-            <option value="">Semua Kategori</option>
-            <?php foreach ($daftarKategori as $kat): ?>
-                <option value="<?= $kat ?>" <?= $kategori === $kat ? 'selected' : '' ?>><?= $kat ?></option>
-            <?php endforeach; ?>
-        </select>
-
-        <button type="submit" class="btn">Terapkan Filter</button>
-        <?php if (!empty($keyword) || !empty($kategori)): ?>
-            <a href="index.php" class="btn btn-secondary">Reset</a>
-        <?php endif; ?>
-    </form>
-
-    <!-- Data Table Presentation -->
-    <div class="table-wrapper">
+    <!-- Tabel Data Produk -->
+    <div class="wadah-tabel">
         <table>
             <thead>
                 <tr>
-                    <th>SKU ID</th>
-                    <th>Nama Produk & Spesifikasi</th>
+                    <th>ID</th>
+                    <th>Nama Produk</th>
                     <th>Kategori</th>
-                    <th>Harga Satuan</th>
+                    <th>Harga</th>
                     <th>Stok Fisik</th>
-                    <th>Valuasi Barang</th>
-                    <th>Status Gudang</th>
+                    <th>Deskripsi</th>
                 </tr>
             </thead>
             <tbody>
-                <?php if (empty($produkTerfilter)): ?>
-                    <tr>
-                        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">
-                            Tidak ada produk yang cocok dengan kriteria pencarian.
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($produkTerfilter as $item): 
-                        $status = cekStatusStok($item['stok']);
-                        $nilaiTotalBarang = $item['harga'] * $item['stok'];
-                    ?>
-                    <tr>
-                        <td><code><?= $item['id'] ?></code></td>
-                        <td>
-                            <strong><?= htmlspecialchars($item['nama']) ?></strong>
-                            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
-                                <?= htmlspecialchars($item['deskripsi']) ?>
-                            </div>
-                        </td>
-                        <td><span class="tag-category"><?= $item['kategori'] ?></span></td>
-                        <td><?= formatRupiah($item['harga']) ?></td>
-                        <td><strong><?= $item['stok'] ?></strong></td>
-                        <td><?= formatRupiah($nilaiTotalBarang) ?></td>
-                        <td>
-                            <span class="badge <?= $status['badge_class'] ?>" title="<?= $status['pesan'] ?>">
-                                <?= $status['label'] ?>
-                            </span>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                <?php foreach ($products as $item): 
+                    $kelasWarna = cekWarnaBarisStok($item['stok']);
+                ?>
+                <tr class="<?= $kelasWarna ?>">
+                    <td><strong><?= $item['id'] ?></strong></td>
+                    <td><strong><?= htmlspecialchars($item['nama']) ?></strong></td>
+                    <td><?= $item['kategori'] ?></td>
+                    <td><?= formatRupiah($item['harga']) ?></td>
+                    <td><strong><?= $item['stok'] ?></strong></td>
+                    <td><?= htmlspecialchars($item['deskripsi']) ?></td>
+                </tr>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>
-
-    <!-- Analisis Eksekutif Mahasiswa SI -->
-    <?php if ($topAsset): ?>
-    <div class="highlight-box">
-        <div>
-            <strong>Insight Operasional:</strong> 
-            Aset dengan penyerapan modal tertinggi saat ini adalah <strong><?= $topAsset['nama'] ?></strong> 
-            sebesar <strong><?= formatRupiah($topAsset['valuasi']) ?></strong> (<?= $topAsset['stok'] ?> unit).
-        </div>
-        <span class="tag-category">Prioritas Pengamanan & Penjualan</span>
-    </div>
-    <?php endif; ?>
-
 </div>
 
 </body>
